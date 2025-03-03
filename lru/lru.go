@@ -73,11 +73,12 @@ func (c *Cache) DeleteOldset() {
 func (c *Cache) Add(key string, value Value) {
 	if ele, ok := c.cache[key]; ok {
 		kv := ele.Value.(*Entry)
-		c.alreadyUsed = value.Len() - kv.value.Len()
+		c.alreadyUsed += value.Len() - kv.value.Len()
 		kv.value = value
 		c.list.MoveToFront(ele)
 	} else {
 		c.list.PushFront((&Entry{key: key, value: value}))
+		c.alreadyUsed += value.Len() + len(key)
 		c.cache[key] = c.list.Front()
 	}
 	//这里为啥要用for?

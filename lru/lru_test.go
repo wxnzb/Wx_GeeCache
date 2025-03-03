@@ -17,13 +17,14 @@ func Test_Get(t *testing.T) {
 	if v, ok := ca.Get("wx"); !ok || v.(String) != "good" {
 		t.Fatal("get fail")
 	}
+	//下面这个肯定让不能通过
 	if _, ok := ca.Get("w,,x"); !ok {
 		t.Fatal("get fail,No key")
 	}
 }
 func Test_DelectOldset(t *testing.T) {
-	k1, k2, k3 := "key1", "key2", "key3"
-	v1, v2, v3 := "v1", "v2", "v3"
+	k1, k2, k3 := "key1", "key2", "k3"
+	v1, v2, v3 := "value1", "value2", "v3"
 	len := len(k1 + k2 + v1 + v2)
 	ca := NewCache(len, nil)
 	ca.Add(k1, String(v1))
@@ -42,10 +43,10 @@ func Test_Onevicted(t *testing.T) {
 	}
 	ca := NewCache(10, callback)
 	ca.Add("key1", String("123456"))
-	ca.Add("key2", String("v2"))
-	ca.Add("key3", String("v3"))
-	ca.Add("key4", String("v4"))
-	expect := []string{"key1", "key2"}
+	ca.Add("k2", String("v2"))
+	ca.Add("k3", String("v3"))
+	ca.Add("k4", String("v4"))
+	expect := []string{"key1", "k2"}
 	//感觉key2不会被淘汰
 	if !reflect.DeepEqual(expect, keys) {
 		t.Fatalf("keys not equal:%s", expect)
