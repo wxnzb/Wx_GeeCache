@@ -1,4 +1,4 @@
-package rlu
+package lru
 
 import (
 	"container/list"
@@ -9,6 +9,7 @@ type Cache struct {
 	alreadyUsed int
 	cache       map[string]*list.Element
 	list        *list.List
+	Onevicted   func(key string, value Value)
 }
 type Entry struct {
 	value Value //这里将int修改成interface{}接口实现通用性
@@ -19,12 +20,13 @@ type Value interface {
 }
 
 // 新建缓存
-func NewCache(maxSize int) *Cache {
+func NewCache(maxSize int, Onevicted func(key string, value Value)) *Cache {
 	return &Cache{
 		maxSize:     maxSize,
 		alreadyUsed: 0, //不需要？
 		cache:       make(map[string]*list.Element),
 		list:        list.New(),
+		Onevicted:   Onevicted,
 	}
 }
 
@@ -47,6 +49,9 @@ func (c *Cache) DeleteOldset() {
 		kv := ele.Value.(*Entry)
 		delete(c.cache, kv.key)
 		c.alreadyUsed -= kv.value.Len() + len(kv.key)
+		if c.Onevicted != nil {
+			c.Onevicted(kv.key, kv.value)
+		}
 	}
 }
 
