@@ -25,8 +25,24 @@ type Group struct {
 	name   string
 	getter Getter
 	mainca cache
+	peers  PeerPicker
 }
 
+func (g *Group) RegisterPeers(peers PeerPicker) {
+	g.peers = peers
+}
+func (g *Group) GetFromPeer(key string) (ByteView, error) {
+	if g.peers != nil {
+		//找到key对应的远程节点，在从远程节点中找到key对应的value
+		if peer, ok := g.peers.Pickpeer(key); ok {
+			if value, err := peer.Get(g.name, key); err == nil {
+				return ByteView{b: value}, nil
+			}
+		}
+	}
+	//如果远程没有，就从本地获取
+	return g.Get(key)
+}
 func NewGroup(name string, getter Getter, maxsize int) *Group {
 	//这里为啥一定要有回调函数
 	if getter == nil {

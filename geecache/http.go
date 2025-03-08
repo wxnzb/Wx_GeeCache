@@ -16,9 +16,10 @@ type HttpPool struct {
 	basePath    string
 	mu          sync.Mutex
 	peers       *consistenthash.Map
-	httpGetters map[string]*httpGetter
+	httpGetters map[string]*httpGetter //现在又忘了这个是干啥的了
 }
 
+// 等于是有两个环，一个环上面存的是远程节点，另外的环上面存的是每个远程节点对应的k,v
 var defaultBasePath = "/_geecache/"
 var defaultReplicas = 50
 
@@ -37,18 +38,44 @@ func (p *HttpPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	groupname := parts[0]
 	key := parts[1]
 	gee := GetGroup(groupname)
-	_, _ = gee.Get(key)
+	print("ggggggggg")
+	_, _ = gee.GetFromPeer(key)
 }
 
 // 实现客户端
 type httpGetter struct {
 	baseUrl string
 }
-type peerGetter interface {
+
+// PeerPicker：根据 key 选择合适的缓存节点。
+// PeerGetter：向选中的缓存节点获取数据（可能是 HTTP 或 RPC 请求）。
+// 假设我们有 3 台缓存服务器（A、B、C），其中：
+// A 需要获取 key1，但它自己没有缓存这个 key。
+// 通过 PickPeer(key1) 发现 key1 在 B 上。
+// 然后，A 通过 PeerGetter.Get("group1", "key1") 从 B 获取数据。
+type PeerPicker interface {
+	Pickpeer(key string) (PeerGetter, bool)
+}
+type PeerGetter interface {
 	Get(group, key string) ([]byte, error)
 }
 
+func (p *HttpPool) Pickpeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		print("kkkkkk")
+		return p.httpGetters[peer], true
+	}
+	return nil, false
+}
+
+var _PeerPicker = (*HttpPool)(nil)
+
+// 这个函数就是找到远程接口后那个接口上的环中找
 func (h *httpGetter) Get(group, key string) ([]byte, error) {
+	print("00000")
+	fmt.Printf("%s", h.baseUrl)
 	u := fmt.Sprintf("%v/%v/%v", h.baseUrl, url.QueryEscape(group), url.QueryEscape(key))
 	resp, err := http.Get(u)
 	if err != nil {
@@ -66,25 +93,12 @@ var _peerGetter = (*httpGetter)(nil)
 func (p *HttpPool) Set(peers ...string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	//将每个远程节点存进环中
 	p.peers = consistenthash.NewMap(defaultReplicas, nil)
 	p.peers.Add(peers...)
 	p.httpGetters = make(map[string]*httpGetter)
 	for _, peer := range peers {
+		//每个 远程节点 创建一个 httpGetter，用于 通过 HTTP 访问该远程节点，实现分布式缓存的远程数据获取
 		p.httpGetters[peer] = &httpGetter{baseUrl: peer + p.basePath}
 	}
 }
-
-type PeerPicker interface {
-	Pickpeer(key string) (*httpGetter, bool)
-}
-
-func (p *HttpPool) Pickpeer(key string) (*httpGetter, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if peer := p.peers.Get(key); peer != "" && peer != p.self {
-		return p.httpGetters[peer], true
-	}
-	return nil, false
-}
-
-var _PeerPicker = (*HttpPool)(nil)
