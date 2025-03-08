@@ -18,3 +18,6 @@ func cloneBytes(b []byte) []byte {
 func (bv ByteView) String() string {
 	return string(bv.b)
 }
+func (bv ByteView) ByteSlice() []byte {
+	return cloneBytes(bv.b)
+}

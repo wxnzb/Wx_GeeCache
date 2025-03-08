@@ -38,8 +38,13 @@ func (p *HttpPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	groupname := parts[0]
 	key := parts[1]
 	gee := GetGroup(groupname)
-	print("ggggggggg")
-	_, _ = gee.GetFromPeer(key)
+	value, err := gee.Get(key)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(value.ByteSlice())
 }
 
 // 实现客户端
@@ -64,7 +69,7 @@ func (p *HttpPool) Pickpeer(key string) (PeerGetter, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if peer := p.peers.Get(key); peer != "" && peer != p.self {
-		print("kkkkkk")
+		log.Printf("Pick peer %s", peer)
 		return p.httpGetters[peer], true
 	}
 	return nil, false
@@ -77,6 +82,7 @@ func (h *httpGetter) Get(group, key string) ([]byte, error) {
 	print("00000")
 	fmt.Printf("%s", h.baseUrl)
 	u := fmt.Sprintf("%v/%v/%v", h.baseUrl, url.QueryEscape(group), url.QueryEscape(key))
+	//这里是关键，你必须先开启对这个端口的监听才行
 	resp, err := http.Get(u)
 	if err != nil {
 		return nil, err
@@ -85,7 +91,11 @@ func (h *httpGetter) Get(group, key string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("server returned:%v", resp.Status)
 	}
-	return ioutil.ReadAll(resp.Body)
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body:%v", err)
+	}
+	return bytes, nil
 }
 
 var _peerGetter = (*httpGetter)(nil)
