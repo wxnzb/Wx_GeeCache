@@ -1,7 +1,6 @@
 package geecache
 
 import (
-	"fmt"
 	"geecache/lru"
 	"sync"
 )
@@ -27,7 +26,7 @@ func (c *cache) get(key string) (value ByteView, ok bool) {
 	if c == nil {
 		return
 	}
-	fmt.Printf("%p", c)
+	//fmt.Printf("%p", c)
 	if v, ok := c.ca.Get(key); ok {
 		return v.(ByteView), ok
 	}

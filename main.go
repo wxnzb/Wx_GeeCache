@@ -6,6 +6,7 @@ import (
 	"geecache"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // 这个他是直接监听9999端口，然后通过http协议访问
@@ -50,11 +51,18 @@ func startCacheServer(addr string, addrs []string, gee *geecache.Group) {
 	p.Set(addrs...)
 	//*httpPool实现了 PeerPicker接口
 	gee.RegisterPeers(p)
-	http.ListenAndServe(addr, p)
+	addr = strings.TrimPrefix(addr, "http://")
+	err := http.ListenAndServe(addr, p)
+	//http.ListenAndServe(addr[7:], p)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 func startApi(apiAddr string, gee *geecache.Group) {
 	http.Handle("/api", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//print("nononono")
 		key := r.URL.Query().Get("key")
+		//fmt.Printf("%v", gee)
 		value, err := gee.Get(key)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -64,6 +72,7 @@ func startApi(apiAddr string, gee *geecache.Group) {
 		w.Write(value.ByteSlice())
 	}))
 	log.Printf("api server is running at %s", apiAddr)
+	apiAddr = strings.TrimPrefix(apiAddr, "http://")
 	http.ListenAndServe(apiAddr, nil)
 }
 func main() {
@@ -71,12 +80,14 @@ func main() {
 	var port int
 	flag.BoolVar(&api, "api", false, "Start a api server")
 	flag.IntVar(&port, "port", 8001, "Cache server port")
+	flag.Parse()
 	gee := creatGroup()
-	apiaddr := "localhost:9999"
+	//fmt.Printf("wuxiwuxi%vheihei", gee)
+	apiaddr := "http://localhost:9999"
 	addrmap := map[int]string{
-		8001: "localhost:8001",
-		8002: "localhost:8002",
-		8003: "localhost:8003",
+		8001: "http://localhost:8001",
+		8002: "http://localhost:8002",
+		8003: "http://localhost:8003",
 	}
 	var addrs []string
 	for _, v := range addrmap {

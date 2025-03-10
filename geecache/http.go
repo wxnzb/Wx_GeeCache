@@ -30,10 +30,13 @@ func NewHttpPool(self string) *HttpPool {
 	}
 }
 
-// func (p *HttpPool)Log()
+func (p *HttpPool) Log(format string, v ...interface{}) {
+	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
+}
 func (p *HttpPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.Path)
+	//log.Printf("%s %s", r.Method, r.URL.Path)
 	//r.URL.Path[len(p.basePath)：]表示去掉basepath后的路径
+	p.Log("%s %s", r.Method, r.URL.Path)
 	parts := strings.SplitN(r.URL.Path[len(p.basePath):], "/", 2)
 	groupname := parts[0]
 	key := parts[1]
@@ -52,18 +55,18 @@ type httpGetter struct {
 	baseUrl string
 }
 
-// PeerPicker：根据 key 选择合适的缓存节点。
-// PeerGetter：向选中的缓存节点获取数据（可能是 HTTP 或 RPC 请求）。
-// 假设我们有 3 台缓存服务器（A、B、C），其中：
-// A 需要获取 key1，但它自己没有缓存这个 key。
-// 通过 PickPeer(key1) 发现 key1 在 B 上。
-// 然后，A 通过 PeerGetter.Get("group1", "key1") 从 B 获取数据。
-type PeerPicker interface {
-	Pickpeer(key string) (PeerGetter, bool)
-}
-type PeerGetter interface {
-	Get(group, key string) ([]byte, error)
-}
+// // PeerPicker：根据 key 选择合适的缓存节点。
+// // PeerGetter：向选中的缓存节点获取数据（可能是 HTTP 或 RPC 请求）。
+// // 假设我们有 3 台缓存服务器（A、B、C），其中：
+// // A 需要获取 key1，但它自己没有缓存这个 key。
+// // 通过 PickPeer(key1) 发现 key1 在 B 上。
+// // 然后，A 通过 PeerGetter.Get("group1", "key1") 从 B 获取数据。
+// type PeerPicker interface {
+// 	Pickpeer(key string) (PeerGetter, bool)
+// }
+// type PeerGetter interface {
+// 	Get(group, key string) ([]byte, error)
+// }
 
 func (p *HttpPool) Pickpeer(key string) (PeerGetter, bool) {
 	p.mu.Lock()
@@ -78,10 +81,13 @@ func (p *HttpPool) Pickpeer(key string) (PeerGetter, bool) {
 var _PeerPicker = (*HttpPool)(nil)
 
 // 这个函数就是找到远程接口后那个接口上的环中找
-func (h *httpGetter) Get(group, key string) ([]byte, error) {
-	print("00000")
-	fmt.Printf("%s", h.baseUrl)
-	u := fmt.Sprintf("%v/%v/%v", h.baseUrl, url.QueryEscape(group), url.QueryEscape(key))
+func (h *httpGetter) Get(groupname, key string) ([]byte, error) {
+	// print("00000")
+	// fmt.Printf("11111%s", h.baseUrl)
+	// fmt.Printf("22222%s", groupname)
+	// fmt.Printf("33333%s", key)
+	//我找你这个bug找了这么长时间
+	u := fmt.Sprintf("%v%v/%v", h.baseUrl, url.QueryEscape(groupname), url.QueryEscape(key))
 	//这里是关键，你必须先开启对这个端口的监听才行
 	resp, err := http.Get(u)
 	if err != nil {
@@ -108,7 +114,7 @@ func (p *HttpPool) Set(peers ...string) {
 	p.peers.Add(peers...)
 	p.httpGetters = make(map[string]*httpGetter)
 	for _, peer := range peers {
-		//每个 远程节点 创建一个 httpGetter，用于 通过 HTTP 访问该远程节点，实现分布式缓存的远程数据获取
+		//每个远程节点 创建一个 httpGetter，用于 通过 HTTP 访问该远程节点，实现分布式缓存的远程数据获取
 		p.httpGetters[peer] = &httpGetter{baseUrl: peer + p.basePath}
 	}
 }

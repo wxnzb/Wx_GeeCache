@@ -52,9 +52,13 @@ func NewGroup(name string, getter Getter, maxsize int) *Group {
 func GetGroup(name string) *Group {
 	mu.RLock()
 	defer mu.RUnlock()
+	if groups[name] == nil {
+		log.Print("你是最棒的")
+	}
 	return groups[name]
 }
 func (g *Group) Get(key string) (ByteView, error) {
+	//fmt.Printf("key=%s", key)
 	if key == "" {
 		return ByteView{}, errors.New("key is required")
 	}
@@ -66,14 +70,21 @@ func (g *Group) Get(key string) (ByteView, error) {
 	return g.load(key)
 }
 func (g *Group) load(key string) (ByteView, error) {
+	//view, err := g.loader.Do(key, func() (interface{}, error) {
 	if g.peers != nil {
 		if peer, ok := g.peers.Pickpeer(key); ok {
+			//fmt.Printf("ooo%s %v", g.name, key)
 			if value, err := peer.Get(g.name, key); err == nil {
 				return ByteView{b: value}, nil
 			}
 		}
 	}
 	return g.getLocally(key)
+	//})
+	// if err != nil {
+	// 	return ByteView{}, err
+	// }
+	// return view.(ByteView), nil
 }
 
 // 根据key获取本地数据
