@@ -1,5 +1,7 @@
 package geecache
 
+import "geecache/geecachepb"
+
 // PeerPicker：根据 key 选择合适的缓存节点。
 // PeerGetter：向选中的缓存节点获取数据（可能是 HTTP 或 RPC 请求）。
 // 假设我们有 3 台缓存服务器（A、B、C），其中：
@@ -10,5 +12,5 @@ type PeerPicker interface {
 	Pickpeer(key string) (PeerGetter, bool)
 }
 type PeerGetter interface {
-	Get(group, key string) ([]byte, error)
+	Get(in *geecachepb.Request, out *geecachepb.Response) error
 }

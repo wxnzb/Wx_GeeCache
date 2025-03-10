@@ -3,12 +3,15 @@ package geecache
 import (
 	"fmt"
 	"geecache/consistenthash"
+	"geecache/geecachepb"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type HttpPool struct {
@@ -46,8 +49,9 @@ func (p *HttpPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	res, _ := proto.Marshal(&geecachepb.Response{Value: value.ByteSlice()})
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(value.ByteSlice())
+	w.Write(res)
 }
 
 // 实现客户端
@@ -81,27 +85,31 @@ func (p *HttpPool) Pickpeer(key string) (PeerGetter, bool) {
 var _PeerPicker = (*HttpPool)(nil)
 
 // 这个函数就是找到远程接口后那个接口上的环中找
-func (h *httpGetter) Get(groupname, key string) ([]byte, error) {
+// 这里要改
+func (h *httpGetter) Get(in *geecachepb.Request, out *geecachepb.Response) error {
 	// print("00000")
 	// fmt.Printf("11111%s", h.baseUrl)
 	// fmt.Printf("22222%s", groupname)
 	// fmt.Printf("33333%s", key)
 	//我找你这个bug找了这么长时间
-	u := fmt.Sprintf("%v%v/%v", h.baseUrl, url.QueryEscape(groupname), url.QueryEscape(key))
-	//这里是关键，你必须先开启对这个端口的监听才行
+	u := fmt.Sprintf("%v%v/%v", h.baseUrl, url.QueryEscape(in.GetGroup()), url.QueryEscape(in.GetKey()))
+	//这里是关键，你必须先开启对这个端口的监听才
 	resp, err := http.Get(u)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned:%v", resp.Status)
+		return fmt.Errorf("server returned:%v", resp.Status)
 	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body:%v", err)
+		return fmt.Errorf("reading response body:%v", err)
 	}
-	return bytes, nil
+	if err = proto.Unmarshal(bytes, out); err != nil {
+		return fmt.Errorf("decoding response body:%v", err)
+	}
+	return nil
 }
 
 var _peerGetter = (*httpGetter)(nil)

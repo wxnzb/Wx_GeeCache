@@ -2,6 +2,7 @@ package geecache
 
 import (
 	"errors"
+	"geecache/geecachepb"
 	"geecache/singleflight"
 	"log"
 	"sync"
@@ -74,8 +75,10 @@ func (g *Group) load(key string) (ByteView, error) {
 		if g.peers != nil {
 			if peer, ok := g.peers.Pickpeer(key); ok {
 				//fmt.Printf("ooo%s %v", g.name, key)
-				if value, err := peer.Get(g.name, key); err == nil {
-					return ByteView{b: value}, nil
+				req := &geecachepb.Request{Group: g.name, Key: key}
+				res := &geecachepb.Response{}
+				if err := peer.Get(req, res); err == nil {
+					return ByteView{b: res.Value}, nil
 				}
 			}
 		}
